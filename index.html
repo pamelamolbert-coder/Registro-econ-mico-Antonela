@@ -148,6 +148,13 @@
   }
   .tag.op{background:var(--green-soft);color:var(--green);}
   .tag.pay{background:var(--red-soft);color:var(--red);}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;margin-left:6px;vertical-align:middle;}
+  .badge.a{background:var(--green-soft);color:var(--green);}
+  .badge.b{background:var(--red-soft);color:var(--red);}
+  .badge.ss{background:var(--orange-soft);color:var(--orange-dark);}
+  .badge.nom{background:var(--red-soft);color:var(--red);}
+  .split-preview{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding:10px 12px;background:var(--cream);border-radius:9px;}
+  .split-preview strong{color:var(--ink);}
   .ledger-row .desc{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .ledger-row .amt{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;font-weight:600;}
   .ledger-row .bal{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;color:var(--ink-soft);}
@@ -203,6 +210,13 @@ let editingPay = null;
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+// Reparto según tipo de facturación
+const SPLIT = {
+  A: { antonela: 0.40, claudia: 0.60, label: 'Factura A (40% Antonela / 60% Claudia)' },
+  B: { antonela: 0.50, claudia: 0.50, label: 'Factura B (50% Antonela / 50% Claudia)' },
+};
+const TIPO_PAGO_LABEL = { nomina: 'Nómina', ss: 'Seguridad Social' };
+
 function fmtMoney(n){
   const v = Number(n)||0;
   return v.toLocaleString('es-ES',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2});
@@ -249,8 +263,13 @@ async function savePay(){
 }
 
 // ---------- Derived data ----------
-function totalGenerado(){ return operaciones.reduce((s,o)=>s+Number(o.monto||0),0); }
+function totalGenerado(){ return operaciones.reduce((s,o)=>s+Number(o.montoAntonela||0),0); }
+function totalClaudia(){ return operaciones.reduce((s,o)=>s+Number(o.montoClaudia||0),0); }
+function totalFacturacion(){ return operaciones.reduce((s,o)=>s+Number(o.totalFacturado||0),0); }
+function totalFacturadoPorTipo(tipo){ return operaciones.filter(o=>o.tipo===tipo).reduce((s,o)=>s+Number(o.totalFacturado||0),0); }
 function totalCobrado(){ return nomina.reduce((s,p)=>s+Number(p.monto||0),0); }
+function totalCobradoPorTipo(tipo){ return nomina.filter(p=>p.tipo===tipo).reduce((s,p)=>s+Number(p.monto||0),0); }
+function totalClaudia(){ return operaciones.reduce((s,o)=>s+Number(o.montoClaudia||0),0); }
 function saldoDisponible(){ return totalGenerado() - totalCobrado(); }
 
 function thisMonthKey(){
@@ -262,11 +281,11 @@ function thisYear(){ return new Date().getFullYear(); }
 function keyOf(dateStr){ return dateStr.slice(0,7); } // YYYY-MM
 function yearOf(dateStr){ return Number(dateStr.slice(0,4)); }
 
-function sumByMonthKey(list, key){
-  return list.filter(x=>keyOf(x.fecha)===key).reduce((s,x)=>s+Number(x.monto||0),0);
+function sumByMonthKey(list, key, field='monto'){
+  return list.filter(x=>keyOf(x.fecha)===key).reduce((s,x)=>s+Number(x[field]||0),0);
 }
-function sumByYear(list, year){
-  return list.filter(x=>yearOf(x.fecha)===year).reduce((s,x)=>s+Number(x.monto||0),0);
+function sumByYear(list, year, field='monto'){
+  return list.filter(x=>yearOf(x.fecha)===year).reduce((s,x)=>s+Number(x[field]||0),0);
 }
 
 function last6MonthKeys(){
@@ -294,15 +313,17 @@ function render(){
 
 function renderResumen(){
   const saldo = saldoDisponible();
-  const genMes = sumByMonthKey(operaciones, thisMonthKey());
+  const genMes = sumByMonthKey(operaciones, thisMonthKey(), 'montoAntonela');
   const cobMes = sumByMonthKey(nomina, thisMonthKey());
-  const genAnio = sumByYear(operaciones, thisYear());
+  const genAnio = sumByYear(operaciones, thisYear(), 'montoAntonela');
   const cobAnio = sumByYear(nomina, thisYear());
+  const claudiaMes = sumByMonthKey(operaciones, thisMonthKey(), 'montoClaudia');
+  const claudiaAnio = sumByYear(operaciones, thisYear(), 'montoClaudia');
 
   const keys = last6MonthKeys();
-  const maxVal = Math.max(1, ...keys.map(k=>Math.max(sumByMonthKey(operaciones,k), sumByMonthKey(nomina,k))));
+  const maxVal = Math.max(1, ...keys.map(k=>Math.max(sumByMonthKey(operaciones,k,'montoAntonela'), sumByMonthKey(nomina,k))));
   const barsHtml = keys.map(k=>{
-    const gen = sumByMonthKey(operaciones,k);
+    const gen = sumByMonthKey(operaciones,k,'montoAntonela');
     const [y,m] = k.split('-');
     const h = Math.round((gen/maxVal)*100);
     return `<div class="bar-col">
@@ -313,40 +334,71 @@ function renderResumen(){
 
   // combined ledger
   const entries = [
-    ...operaciones.map(o=>({...o, tipo:'op'})),
-    ...nomina.map(p=>({...p, tipo:'pay'}))
-  ].sort((a,b)=> a.fecha.localeCompare(b.fecha) || (a.tipo==='op'?-1:1));
+    ...operaciones.map(o=>({...o, entryType:'op'})),
+    ...nomina.map(p=>({...p, entryType:'pay'}))
+  ].sort((a,b)=> a.fecha.localeCompare(b.fecha) || (a.entryType==='op'?-1:1));
 
   let running = 0;
   const withBalance = entries.map(e=>{
-    running += e.tipo==='op' ? Number(e.monto||0) : -Number(e.monto||0);
-    return {...e, balance:running};
+    const monto = e.entryType==='op' ? Number(e.montoAntonela||0) : Number(e.monto||0);
+    running += e.entryType==='op' ? monto : -monto;
+    return {...e, balance:running, _monto:monto};
   }).reverse(); // most recent first
 
-  const ledgerRows = withBalance.length ? withBalance.map(e=>`
+  const ledgerRows = withBalance.length ? withBalance.map(e=>{
+    const label = e.entryType==='op' ? 'Venta' : (TIPO_PAGO_LABEL[e.tipo] || 'Nómina');
+    const desc = e.entryType==='op'
+      ? (escapeHtml(e.inmueble||'Operación') + (e.tipo ? ` <span class="badge ${e.tipo==='A'?'a':'b'}" style="margin-left:4px">Fact. ${e.tipo}</span>` : ''))
+      : escapeHtml(e.concepto || (TIPO_PAGO_LABEL[e.tipo]||'Pago de nómina'));
+    return `
     <div class="ledger-row">
-      <span class="tag ${e.tipo}">${e.tipo==='op'?'Venta':'Nómina'}</span>
-      <span class="desc">${e.tipo==='op' ? escapeHtml(e.inmueble||'Operación') : (e.concepto||'Pago de nómina')}</span>
-      <span class="amt ${e.tipo==='op'?'plus':'minus'}" style="color:${e.tipo==='op'?'var(--green)':'var(--red)'}">${e.tipo==='op'?'+':'−'}${fmtMoney(e.monto)}</span>
+      <span class="tag ${e.entryType}">${label}</span>
+      <span class="desc">${desc}</span>
+      <span class="amt ${e.entryType==='op'?'plus':'minus'}" style="color:${e.entryType==='op'?'var(--green)':'var(--red)'}">${e.entryType==='op'?'+':'−'}${fmtMoney(e._monto)}</span>
       <span class="bal">${fmtMoney(e.balance)}</span>
     </div>
-  `).join('') : `<div class="empty">Todavía no hay movimientos. Cargá tu primera operación o nómina.</div>`;
+  `;}).join('') : `<div class="empty">Todavía no hay movimientos. Cargá tu primera operación o nómina.</div>`;
 
   return `
     <div class="balance-card">
       <div class="balance-label">Saldo disponible</div>
       <div class="balance-amount">${fmtMoney(saldo)}</div>
-      <div class="balance-sub">Lo que generaste menos lo que ya cobraste de nómina</div>
+      <div class="balance-sub">Lo que generaste (tu parte) menos lo que ya cobraste de nómina y seguridad social</div>
       <div class="balance-grid">
-        <div>Total generado<strong>${fmtMoney(totalGenerado())}</strong></div>
+        <div>Tu parte generada<strong>${fmtMoney(totalGenerado())}</strong></div>
+        <div>Parte de Claudia<strong>${fmtMoney(totalClaudia())}</strong></div>
         <div>Total cobrado<strong>${fmtMoney(totalCobrado())}</strong></div>
         <div>Operaciones cerradas<strong>${operaciones.length}</strong></div>
+        <div>Facturación total (A+B)<strong>${fmtMoney(totalFacturacion())}</strong></div>
       </div>
     </div>
 
+    <section class="card">
+      <h2>Reparto Antonela / Claudia</h2>
+      <p class="hint">Cuánto le corresponde a cada una sobre el total facturado, para verlo de un pantallazo.</p>
+      <div class="stats" style="margin-bottom:0">
+        <div class="stat">
+          <div class="k">Tu parte (total)</div>
+          <div class="v orange">${fmtMoney(totalGenerado())}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Parte de Claudia (total)</div>
+          <div class="v" style="color:var(--ink)">${fmtMoney(totalClaudia())}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Tu parte este año</div>
+          <div class="v orange">${fmtMoney(genAnio)}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Parte de Claudia este año</div>
+          <div class="v" style="color:var(--ink)">${fmtMoney(claudiaAnio)}</div>
+        </div>
+      </div>
+    </section>
+
     <div class="stats">
       <div class="stat">
-        <div class="k">Facturado este mes</div>
+        <div class="k">Tu parte este mes</div>
         <div class="v orange">${fmtMoney(genMes)}</div>
       </div>
       <div class="stat">
@@ -354,7 +406,7 @@ function renderResumen(){
         <div class="v green">${fmtMoney(cobMes)}</div>
       </div>
       <div class="stat">
-        <div class="k">Facturado este año (${thisYear()})</div>
+        <div class="k">Tu parte este año (${thisYear()})</div>
         <div class="v orange">${fmtMoney(genAnio)}</div>
       </div>
       <div class="stat">
@@ -364,8 +416,31 @@ function renderResumen(){
     </div>
 
     <section class="card">
+      <h2>Control de facturación: A vs B</h2>
+      <p class="hint">Cuánto se facturó con factura (A) y cuánto sin factura (B), sobre el total facturado.</p>
+      <div class="stats" style="margin-bottom:0">
+        <div class="stat">
+          <div class="k">Facturado en A</div>
+          <div class="v" style="color:var(--green)">${fmtMoney(totalFacturadoPorTipo('A'))}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Facturado en B</div>
+          <div class="v" style="color:var(--red)">${fmtMoney(totalFacturadoPorTipo('B'))}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Tu parte total</div>
+          <div class="v orange">${fmtMoney(totalGenerado())}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Parte de Claudia total</div>
+          <div class="v" style="color:var(--ink-soft)">${fmtMoney(totalClaudia())}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>Últimos 6 meses generados</h2>
-      <p class="hint">Cuánto facturaste en operaciones, mes a mes.</p>
+      <p class="hint">Tu parte de lo facturado en operaciones, mes a mes.</p>
       <div class="bars">${barsHtml}</div>
     </section>
 
@@ -384,14 +459,17 @@ function renderOperaciones(){
   const sorted = [...operaciones].sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const isEditing = editingOp !== null;
   const op = isEditing ? operaciones.find(o=>o.id===editingOp) : null;
+  const tipoActual = op ? op.tipo : 'A';
+  const totalActual = op ? op.totalFacturado : '';
 
   const rows = sorted.length ? sorted.map(o=>`
     <div class="row-item">
       <div class="meta">
-        <div class="title">${escapeHtml(o.inmueble||'Sin nombre')}${o.cliente ? ' · '+escapeHtml(o.cliente) : ''}</div>
+        <div class="title">${escapeHtml(o.inmueble||'Sin nombre')}${o.cliente ? ' · '+escapeHtml(o.cliente) : ''}<span class="badge ${o.tipo==='A'?'a':'b'}">Fact. ${o.tipo}</span></div>
         <div class="date">${fmtDate(o.fecha)}${o.notas ? ' · '+escapeHtml(o.notas) : ''}</div>
+        <div class="date">Total facturado: ${fmtMoney(o.totalFacturado)} · Claudia: ${fmtMoney(o.montoClaudia)}</div>
       </div>
-      <div class="amt plus">+${fmtMoney(o.monto)}</div>
+      <div class="amt plus">+${fmtMoney(o.montoAntonela)}</div>
       <div class="actions">
         <button class="icon-btn" data-edit-op="${o.id}" title="Editar">✎</button>
         <button class="icon-btn" data-del-op="${o.id}" title="Eliminar">✕</button>
@@ -402,16 +480,24 @@ function renderOperaciones(){
   return `
     <section class="card">
       <h2>${isEditing ? 'Editar operación' : 'Nueva operación cerrada'}</h2>
-      <p class="hint">Cargá cada venta o alquiler que cerraste y cuánto te llevás vos de esa operación.</p>
+      <p class="hint">Cargá cada venta o alquiler que cerraste. El reparto entre vos y Claudia se calcula solo según cómo se facturó.</p>
       <form class="entry" id="form-op">
         <div>
           <label>Fecha de cierre</label>
           <input type="date" name="fecha" value="${op?op.fecha:todayISO()}" required>
         </div>
         <div>
-          <label>Cuánto te llevás (€)</label>
-          <input type="number" name="monto" min="0" step="0.01" placeholder="Ej: 1200" value="${op?op.monto:''}" required>
+          <label>Tipo de facturación</label>
+          <select name="tipo" id="op-tipo">
+            <option value="A" ${tipoActual==='A'?'selected':''}>Factura A (40% Antonela / 60% Claudia)</option>
+            <option value="B" ${tipoActual==='B'?'selected':''}>Factura B (50% Antonela / 50% Claudia)</option>
+          </select>
         </div>
+        <div class="full">
+          <label>Total facturado de la operación (€)</label>
+          <input type="number" name="totalFacturado" id="op-total" min="0" step="0.01" placeholder="Ej: 3000" value="${totalActual}" required>
+        </div>
+        <div class="full" id="op-split-preview"></div>
         <div class="full">
           <label>Inmueble / referencia</label>
           <input type="text" name="inmueble" placeholder="Ej: Piso Calle Mayor 12" value="${op?escapeAttr(op.inmueble):''}">
@@ -442,11 +528,17 @@ function renderNomina(){
   const sorted = [...nomina].sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const isEditing = editingPay !== null;
   const pay = isEditing ? nomina.find(p=>p.id===editingPay) : null;
+  const tipoActual = pay ? (pay.tipo||'nomina') : 'nomina';
 
-  const rows = sorted.length ? sorted.map(p=>`
+  const totalNomina = totalCobradoPorTipo('nomina');
+  const totalSS = totalCobradoPorTipo('ss');
+
+  const rows = sorted.length ? sorted.map(p=>{
+    const tipo = p.tipo || 'nomina';
+    return `
     <div class="row-item">
       <div class="meta">
-        <div class="title">${escapeHtml(p.concepto || 'Pago de nómina')}</div>
+        <div class="title">${escapeHtml(p.concepto || TIPO_PAGO_LABEL[tipo])}<span class="badge ${tipo==='ss'?'ss':'nom'}">${TIPO_PAGO_LABEL[tipo]}</span></div>
         <div class="date">${fmtDate(p.fecha)}</div>
       </div>
       <div class="amt minus">−${fmtMoney(p.monto)}</div>
@@ -455,18 +547,36 @@ function renderNomina(){
         <button class="icon-btn" data-del-pay="${p.id}" title="Eliminar">✕</button>
       </div>
     </div>
-  `).join('') : `<div class="empty">Todavía no cargaste ningún pago de nómina.</div>`;
+  `;}).join('') : `<div class="empty">Todavía no cargaste ningún pago de nómina o seguridad social.</div>`;
 
   return `
+    <div class="stats">
+      <div class="stat">
+        <div class="k">Total cobrado en nómina</div>
+        <div class="v" style="color:var(--red)">${fmtMoney(totalNomina)}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Total pagado en seguridad social</div>
+        <div class="v" style="color:var(--orange-dark)">${fmtMoney(totalSS)}</div>
+      </div>
+    </div>
+
     <section class="card">
-      <h2>${isEditing ? 'Editar pago' : 'Nuevo pago de nómina'}</h2>
-      <p class="hint">Cada vez que te autopagás la nómina, cargalo acá y se descuenta automáticamente de tu saldo.</p>
+      <h2>${isEditing ? 'Editar pago' : 'Nuevo pago'}</h2>
+      <p class="hint">Cada vez que te autopagás la nómina o la seguridad social, cargalo acá y se descuenta automáticamente de tu saldo.</p>
       <form class="entry" id="form-pay">
         <div>
           <label>Fecha del pago</label>
           <input type="date" name="fecha" value="${pay?pay.fecha:todayISO()}" required>
         </div>
         <div>
+          <label>Tipo de pago</label>
+          <select name="tipo" id="pay-tipo">
+            <option value="nomina" ${tipoActual==='nomina'?'selected':''}>Nómina</option>
+            <option value="ss" ${tipoActual==='ss'?'selected':''}>Seguridad Social</option>
+          </select>
+        </div>
+        <div class="full">
           <label>Monto pagado (€)</label>
           <input type="number" name="monto" min="0" step="0.01" placeholder="Ej: 1500" value="${pay?pay.monto:''}" required>
         </div>
@@ -482,7 +592,7 @@ function renderNomina(){
     </section>
 
     <section class="card">
-      <h2>Historial de nómina</h2>
+      <h2>Historial de nómina y seguridad social</h2>
       <div class="list">${rows}</div>
     </section>
   `;
@@ -495,16 +605,39 @@ function escapeHtml(str){
 function escapeAttr(str){ return escapeHtml(str); }
 
 // ---------- Handlers ----------
+function updateSplitPreview(){
+  const tipoSel = $('#op-tipo');
+  const totalInput = $('#op-total');
+  const preview = $('#op-split-preview');
+  if(!tipoSel || !totalInput || !preview) return;
+  const tipo = tipoSel.value;
+  const total = parseFloat(totalInput.value) || 0;
+  const s = SPLIT[tipo];
+  const a = total * s.antonela;
+  const c = total * s.claudia;
+  preview.innerHTML = `<div class="split-preview">${s.label}<br>Antonela: <strong>${fmtMoney(a)}</strong> · Claudia: <strong>${fmtMoney(c)}</strong></div>`;
+}
+
 function attachHandlers(){
   const formOp = $('#form-op');
   if(formOp){
+    updateSplitPreview();
+    $('#op-tipo').addEventListener('change', updateSplitPreview);
+    $('#op-total').addEventListener('input', updateSplitPreview);
+
     formOp.addEventListener('submit', async (e)=>{
       e.preventDefault();
       const fd = new FormData(formOp);
+      const tipo = fd.get('tipo');
+      const totalFacturado = parseFloat(fd.get('totalFacturado'))||0;
+      const s = SPLIT[tipo];
       const data = {
         id: editingOp || uid(),
         fecha: fd.get('fecha'),
-        monto: parseFloat(fd.get('monto'))||0,
+        tipo: tipo,
+        totalFacturado: totalFacturado,
+        montoAntonela: totalFacturado * s.antonela,
+        montoClaudia: totalFacturado * s.claudia,
         inmueble: fd.get('inmueble').trim(),
         cliente: fd.get('cliente').trim(),
         notas: fd.get('notas').trim(),
@@ -547,6 +680,7 @@ function attachHandlers(){
       const data = {
         id: editingPay || uid(),
         fecha: fd.get('fecha'),
+        tipo: fd.get('tipo') || 'nomina',
         monto: parseFloat(fd.get('monto'))||0,
         concepto: fd.get('concepto').trim(),
       };
