@@ -229,22 +229,22 @@ function showToast(msg){
 // ---------- Storage ----------
 async function loadData(){
   try{
-    const opRes = await window.storage.get('antonela-operaciones');
-    operaciones = opRes ? JSON.parse(opRes.value) : [];
+    const raw = localStorage.getItem('antonela-operaciones');
+    operaciones = raw ? JSON.parse(raw) : [];
   }catch(e){ operaciones = []; }
   try{
-    const payRes = await window.storage.get('antonela-nomina');
-    nomina = payRes ? JSON.parse(payRes.value) : [];
+    const raw = localStorage.getItem('antonela-nomina');
+    nomina = raw ? JSON.parse(raw) : [];
   }catch(e){ nomina = []; }
 }
 async function saveOps(){
   try{
-    await window.storage.set('antonela-operaciones', JSON.stringify(operaciones));
+    localStorage.setItem('antonela-operaciones', JSON.stringify(operaciones));
   }catch(e){ showToast('No se pudo guardar. Intenta de nuevo.'); }
 }
 async function savePay(){
   try{
-    await window.storage.set('antonela-nomina', JSON.stringify(nomina));
+    localStorage.setItem('antonela-nomina', JSON.stringify(nomina));
   }catch(e){ showToast('No se pudo guardar. Intenta de nuevo.'); }
 }
 
