@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Económico Antonela</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFFDF9;
+    --paper:#FFFFFF;
+    --cream:#FFF3E7;
+    --orange:#FF6A2B;
+    --orange-dark:#D9490F;
+    --orange-soft:#FFE3CF;
+    --ink:#2B241E;
+    --ink-soft:#7A7068;
+    --line:#F0E3D6;
+    --green:#3F7A56;
+    --green-soft:#E7F3EC;
+    --red:#C4432E;
+    --red-soft:#FBE7E2;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 80px;}
+
+  /* Header */
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;}
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:44px;height:44px;border-radius:10px;
+    background:linear-gradient(155deg,var(--orange),var(--orange-dark));
+    display:flex;align-items:center;justify-content:center;
+    color:white;font-family:'Fraunces',serif;font-weight:700;font-size:20px;
+    flex-shrink:0;
+  }
+  h1{font-family:'Fraunces',serif;font-weight:700;font-size:26px;margin:0;line-height:1.1;}
+  .brand p{margin:2px 0 0;color:var(--ink-soft);font-size:13px;}
+
+  /* Tabs */
+  nav.tabs{display:flex;gap:6px;background:var(--cream);padding:5px;border-radius:12px;margin-bottom:24px;}
+  nav.tabs button{
+    flex:1;padding:11px 8px;border:none;background:transparent;border-radius:9px;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:14px;color:var(--ink-soft);
+    cursor:pointer;transition:all .15s ease;
+  }
+  nav.tabs button.active{background:var(--paper);color:var(--orange-dark);box-shadow:0 1px 4px rgba(217,73,15,.15);}
+  nav.tabs button:hover:not(.active){color:var(--ink);}
+
+  .view{display:none;}
+  .view.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  /* Balance hero */
+  .balance-card{
+    background:linear-gradient(155deg,var(--orange) 0%,var(--orange-dark) 100%);
+    border-radius:20px;padding:26px 26px 22px;color:white;margin-bottom:18px;
+    position:relative;overflow:hidden;
+  }
+  .balance-card::after{
+    content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;
+    border-radius:50%;background:rgba(255,255,255,.08);
+  }
+  .balance-label{font-size:13px;opacity:.85;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+  .balance-amount{font-family:'Fraunces',serif;font-size:44px;font-weight:700;margin:6px 0 2px;letter-spacing:-.01em;}
+  .balance-sub{font-size:13px;opacity:.85;}
+  .balance-grid{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;position:relative;}
+  .balance-grid div{font-size:13px;opacity:.9;}
+  .balance-grid strong{display:block;font-family:'Space Mono',monospace;font-size:17px;font-weight:700;margin-top:2px;}
+
+  /* Stat cards */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+  @media(max-width:520px){.stats{grid-template-columns:1fr;}}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:18px;}
+  .stat .k{font-size:12px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  .stat .v{font-family:'Space Mono',monospace;font-size:24px;font-weight:700;margin-top:6px;}
+  .stat .v.orange{color:var(--orange-dark);}
+  .stat .v.green{color:var(--green);}
+
+  section.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin-bottom:18px;}
+  section.card h2{font-family:'Fraunces',serif;font-size:19px;margin:0 0 4px;}
+  section.card .hint{color:var(--ink-soft);font-size:13px;margin:0 0 16px;}
+
+  /* Monthly bars */
+  .bars{display:flex;align-items:flex-end;gap:10px;height:150px;padding:10px 4px 0;overflow-x:auto;}
+  .bar-col{display:flex;flex-direction:column;align-items:center;min-width:38px;}
+  .bar-track{height:110px;width:22px;background:var(--cream);border-radius:6px;display:flex;flex-direction:column-reverse;overflow:hidden;}
+  .bar-fill{width:100%;background:linear-gradient(180deg,var(--orange),var(--orange-dark));border-radius:6px 6px 0 0;transition:height .3s ease;}
+  .bar-label{font-size:10px;color:var(--ink-soft);margin-top:6px;font-weight:600;}
+
+  /* Forms */
+  form.entry{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px;}
+  form.entry .full{grid-column:1/-1;}
+  @media(max-width:560px){form.entry{grid-template-columns:1fr;}}
+  label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;}
+  input, textarea, select{
+    width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:9px;
+    font-family:'Inter',sans-serif;font-size:14px;color:var(--ink);background:var(--bg);
+    transition:border-color .15s ease;
+  }
+  input:focus, textarea:focus, select:focus{outline:none;border-color:var(--orange);}
+  textarea{resize:vertical;min-height:44px;}
+  .btn{
+    background:var(--orange);color:white;border:none;padding:12px 22px;border-radius:9px;
+    font-weight:700;font-size:14px;cursor:pointer;transition:background .15s ease;
+    font-family:'Inter',sans-serif;
+  }
+  .btn:hover{background:var(--orange-dark);}
+  .btn.secondary{background:transparent;color:var(--ink-soft);border:1.5px solid var(--line);}
+  .btn.secondary:hover{border-color:var(--red);color:var(--red);}
+  .form-actions{grid-column:1/-1;display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}
+
+  /* Table / list */
+  .list{display:flex;flex-direction:column;gap:8px;margin-top:18px;}
+  .row-item{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:14px 14px;border:1px solid var(--line);border-radius:11px;background:var(--bg);
+  }
+  .row-item .meta{min-width:0;}
+  .row-item .title{font-weight:600;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .row-item .date{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .row-item .amt{font-family:'Space Mono',monospace;font-weight:700;font-size:15.5px;white-space:nowrap;}
+  .amt.plus{color:var(--green);}
+  .amt.minus{color:var(--red);}
+  .row-item .actions{display:flex;gap:6px;flex-shrink:0;}
+  .icon-btn{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:15px;
+    padding:6px;border-radius:6px;line-height:1;
+  }
+  .icon-btn:hover{background:var(--cream);color:var(--orange-dark);}
+  .empty{text-align:center;color:var(--ink-soft);font-size:13.5px;padding:26px 10px;}
+
+  /* Ledger (registro combinado) */
+  .ledger-row{display:grid;grid-template-columns:64px 1fr 100px 110px;gap:10px;align-items:center;padding:11px 6px;border-bottom:1px solid var(--line);}
+  .ledger-row:last-child{border-bottom:none;}
+  .ledger-row .tag{
+    font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;text-align:center;
+    text-transform:uppercase;letter-spacing:.03em;
+  }
+  .tag.op{background:var(--green-soft);color:var(--green);}
+  .tag.pay{background:var(--red-soft);color:var(--red);}
+  .ledger-row .desc{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ledger-row .amt{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;font-weight:600;}
+  .ledger-row .bal{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;color:var(--ink-soft);}
+  .ledger-head{display:grid;grid-template-columns:64px 1fr 100px 110px;gap:10px;padding:0 6px 8px;font-size:11px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--ink);}
+  .ledger-head .amt, .ledger-head .bal{text-align:right;}
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:white;padding:11px 20px;border-radius:30px;font-size:13.5px;
+    box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;
+    font-weight:600;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+  .loading{text-align:center;padding:60px 20px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div>
+        <h1>Registro Económico Antonela</h1>
+        <p>Control de operaciones y nómina</p>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="resumen">Resumen</button>
+    <button data-tab="operaciones">Operaciones</button>
+    <button data-tab="nomina">Nómina</button>
+  </nav>
+
+  <div id="app">
+    <div class="loading">Cargando tu información…</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (sel, el=document) => el.querySelector(sel);
+const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+
+let operaciones = [];
+let nomina = [];
+let editingOp = null;
+let editingPay = null;
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function fmtMoney(n){
+  const v = Number(n)||0;
+  return v.toLocaleString('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0});
+}
+function fmtDate(d){
+  const dt = new Date(d+'T00:00:00');
+  if(isNaN(dt)) return d;
+  return dt.toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'});
+}
+function todayISO(){
+  return new Date().toISOString().slice(0,10);
+}
+function uid(){
+  return Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+}
+function showToast(msg){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._h);
+  showToast._h = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ---------- Storage ----------
+async function loadData(){
+  try{
+    const opRes = await window.storage.get('antonela-operaciones');
+    operaciones = opRes ? JSON.parse(opRes.value) : [];
+  }catch(e){ operaciones = []; }
+  try{
+    const payRes = await window.storage.get('antonela-nomina');
+    nomina = payRes ? JSON.parse(payRes.value) : [];
+  }catch(e){ nomina = []; }
+}
+async function saveOps(){
+  try{
+    await window.storage.set('antonela-operaciones', JSON.stringify(operaciones));
+  }catch(e){ showToast('No se pudo guardar. Intenta de nuevo.'); }
+}
+async function savePay(){
+  try{
+    await window.storage.set('antonela-nomina', JSON.stringify(nomina));
+  }catch(e){ showToast('No se pudo guardar. Intenta de nuevo.'); }
+}
+
+// ---------- Derived data ----------
+function totalGenerado(){ return operaciones.reduce((s,o)=>s+Number(o.monto||0),0); }
+function totalCobrado(){ return nomina.reduce((s,p)=>s+Number(p.monto||0),0); }
+function saldoDisponible(){ return totalGenerado() - totalCobrado(); }
+
+function thisMonthKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function thisYear(){ return new Date().getFullYear(); }
+
+function keyOf(dateStr){ return dateStr.slice(0,7); } // YYYY-MM
+function yearOf(dateStr){ return Number(dateStr.slice(0,4)); }
+
+function sumByMonthKey(list, key){
+  return list.filter(x=>keyOf(x.fecha)===key).reduce((s,x)=>s+Number(x.monto||0),0);
+}
+function sumByYear(list, year){
+  return list.filter(x=>yearOf(x.fecha)===year).reduce((s,x)=>s+Number(x.monto||0),0);
+}
+
+function last6MonthKeys(){
+  const arr = [];
+  const d = new Date();
+  d.setDate(1);
+  for(let i=5;i>=0;i--){
+    const dd = new Date(d.getFullYear(), d.getMonth()-i, 1);
+    arr.push(`${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}`);
+  }
+  return arr;
+}
+
+// ---------- Render ----------
+function render(){
+  const app = $('#app');
+  const activeTab = $('nav.tabs button.active').dataset.tab;
+  app.innerHTML = `
+    <div class="view ${activeTab==='resumen'?'active':''}" id="view-resumen">${renderResumen()}</div>
+    <div class="view ${activeTab==='operaciones'?'active':''}" id="view-operaciones">${renderOperaciones()}</div>
+    <div class="view ${activeTab==='nomina'?'active':''}" id="view-nomina">${renderNomina()}</div>
+  `;
+  attachHandlers();
+}
+
+function renderResumen(){
+  const saldo = saldoDisponible();
+  const genMes = sumByMonthKey(operaciones, thisMonthKey());
+  const cobMes = sumByMonthKey(nomina, thisMonthKey());
+  const genAnio = sumByYear(operaciones, thisYear());
+  const cobAnio = sumByYear(nomina, thisYear());
+
+  const keys = last6MonthKeys();
+  const maxVal = Math.max(1, ...keys.map(k=>Math.max(sumByMonthKey(operaciones,k), sumByMonthKey(nomina,k))));
+  const barsHtml = keys.map(k=>{
+    const gen = sumByMonthKey(operaciones,k);
+    const [y,m] = k.split('-');
+    const h = Math.round((gen/maxVal)*100);
+    return `<div class="bar-col">
+      <div class="bar-track"><div class="bar-fill" style="height:${h}%"></div></div>
+      <div class="bar-label">${MESES[Number(m)-1]}</div>
+    </div>`;
+  }).join('');
+
+  // combined ledger
+  const entries = [
+    ...operaciones.map(o=>({...o, tipo:'op'})),
+    ...nomina.map(p=>({...p, tipo:'pay'}))
+  ].sort((a,b)=> a.fecha.localeCompare(b.fecha) || (a.tipo==='op'?-1:1));
+
+  let running = 0;
+  const withBalance = entries.map(e=>{
+    running += e.tipo==='op' ? Number(e.monto||0) : -Number(e.monto||0);
+    return {...e, balance:running};
+  }).reverse(); // most recent first
+
+  const ledgerRows = withBalance.length ? withBalance.map(e=>`
+    <div class="ledger-row">
+      <span class="tag ${e.tipo}">${e.tipo==='op'?'Venta':'Nómina'}</span>
+      <span class="desc">${e.tipo==='op' ? escapeHtml(e.inmueble||'Operación') : (e.concepto||'Pago de nómina')}</span>
+      <span class="amt ${e.tipo==='op'?'plus':'minus'}" style="color:${e.tipo==='op'?'var(--green)':'var(--red)'}">${e.tipo==='op'?'+':'−'}${fmtMoney(e.monto)}</span>
+      <span class="bal">${fmtMoney(e.balance)}</span>
+    </div>
+  `).join('') : `<div class="empty">Todavía no hay movimientos. Cargá tu primera operación o nómina.</div>`;
+
+  return `
+    <div class="balance-card">
+      <div class="balance-label">Saldo disponible</div>
+      <div class="balance-amount">${fmtMoney(saldo)}</div>
+      <div class="balance-sub">Lo que generaste menos lo que ya cobraste de nómina</div>
+      <div class="balance-grid">
+        <div>Total generado<strong>${fmtMoney(totalGenerado())}</strong></div>
+        <div>Total cobrado<strong>${fmtMoney(totalCobrado())}</strong></div>
+        <div>Operaciones cerradas<strong>${operaciones.length}</strong></div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="k">Facturado este mes</div>
+        <div class="v orange">${fmtMoney(genMes)}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Cobrado este mes</div>
+        <div class="v green">${fmtMoney(cobMes)}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Facturado este año (${thisYear()})</div>
+        <div class="v orange">${fmtMoney(genAnio)}</div>
+      </div>
+      <div class="stat">
+        <div class="k">Cobrado este año (${thisYear()})</div>
+        <div class="v green">${fmtMoney(cobAnio)}</div>
+      </div>
+    </div>
+
+    <section class="card">
+      <h2>Últimos 6 meses generados</h2>
+      <p class="hint">Cuánto facturaste en operaciones, mes a mes.</p>
+      <div class="bars">${barsHtml}</div>
+    </section>
+
+    <section class="card">
+      <h2>Registro completo</h2>
+      <p class="hint">Todos los movimientos, del más reciente al más antiguo, con el saldo acumulado.</p>
+      <div class="ledger-head">
+        <span>Tipo</span><span>Detalle</span><span style="text-align:right">Monto</span><span style="text-align:right">Saldo</span>
+      </div>
+      ${ledgerRows}
+    </section>
+  `;
+}
+
+function renderOperaciones(){
+  const sorted = [...operaciones].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const isEditing = editingOp !== null;
+  const op = isEditing ? operaciones.find(o=>o.id===editingOp) : null;
+
+  const rows = sorted.length ? sorted.map(o=>`
+    <div class="row-item">
+      <div class="meta">
+        <div class="title">${escapeHtml(o.inmueble||'Sin nombre')}${o.cliente ? ' · '+escapeHtml(o.cliente) : ''}</div>
+        <div class="date">${fmtDate(o.fecha)}${o.notas ? ' · '+escapeHtml(o.notas) : ''}</div>
+      </div>
+      <div class="amt plus">+${fmtMoney(o.monto)}</div>
+      <div class="actions">
+        <button class="icon-btn" data-edit-op="${o.id}" title="Editar">✎</button>
+        <button class="icon-btn" data-del-op="${o.id}" title="Eliminar">✕</button>
+      </div>
+    </div>
+  `).join('') : `<div class="empty">Todavía no cargaste ninguna operación. Sumá la primera con el formulario de arriba.</div>`;
+
+  return `
+    <section class="card">
+      <h2>${isEditing ? 'Editar operación' : 'Nueva operación cerrada'}</h2>
+      <p class="hint">Cargá cada venta o alquiler que cerraste y cuánto te llevás vos de esa operación.</p>
+      <form class="entry" id="form-op">
+        <div>
+          <label>Fecha de cierre</label>
+          <input type="date" name="fecha" value="${op?op.fecha:todayISO()}" required>
+        </div>
+        <div>
+          <label>Cuánto te llevás (€)</label>
+          <input type="number" name="monto" min="0" step="0.01" placeholder="Ej: 1200" value="${op?op.monto:''}" required>
+        </div>
+        <div class="full">
+          <label>Inmueble / referencia</label>
+          <input type="text" name="inmueble" placeholder="Ej: Piso Calle Mayor 12" value="${op?escapeAttr(op.inmueble):''}">
+        </div>
+        <div class="full">
+          <label>Cliente</label>
+          <input type="text" name="cliente" placeholder="Ej: Familia García" value="${op?escapeAttr(op.cliente):''}">
+        </div>
+        <div class="full">
+          <label>Notas (opcional)</label>
+          <textarea name="notas" placeholder="Cualquier detalle que quieras recordar">${op?escapeHtml(op.notas||''):''}</textarea>
+        </div>
+        <div class="form-actions">
+          ${isEditing ? '<button type="button" class="btn secondary" id="cancel-op">Cancelar</button>' : ''}
+          <button type="submit" class="btn">${isEditing?'Guardar cambios':'Agregar operación'}</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Historial de operaciones</h2>
+      <div class="list">${rows}</div>
+    </section>
+  `;
+}
+
+function renderNomina(){
+  const sorted = [...nomina].sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const isEditing = editingPay !== null;
+  const pay = isEditing ? nomina.find(p=>p.id===editingPay) : null;
+
+  const rows = sorted.length ? sorted.map(p=>`
+    <div class="row-item">
+      <div class="meta">
+        <div class="title">${escapeHtml(p.concepto || 'Pago de nómina')}</div>
+        <div class="date">${fmtDate(p.fecha)}</div>
+      </div>
+      <div class="amt minus">−${fmtMoney(p.monto)}</div>
+      <div class="actions">
+        <button class="icon-btn" data-edit-pay="${p.id}" title="Editar">✎</button>
+        <button class="icon-btn" data-del-pay="${p.id}" title="Eliminar">✕</button>
+      </div>
+    </div>
+  `).join('') : `<div class="empty">Todavía no cargaste ningún pago de nómina.</div>`;
+
+  return `
+    <section class="card">
+      <h2>${isEditing ? 'Editar pago' : 'Nuevo pago de nómina'}</h2>
+      <p class="hint">Cada vez que te autopagás la nómina, cargalo acá y se descuenta automáticamente de tu saldo.</p>
+      <form class="entry" id="form-pay">
+        <div>
+          <label>Fecha del pago</label>
+          <input type="date" name="fecha" value="${pay?pay.fecha:todayISO()}" required>
+        </div>
+        <div>
+          <label>Monto pagado (€)</label>
+          <input type="number" name="monto" min="0" step="0.01" placeholder="Ej: 1500" value="${pay?pay.monto:''}" required>
+        </div>
+        <div class="full">
+          <label>Concepto (opcional)</label>
+          <input type="text" name="concepto" placeholder="Ej: Nómina de junio" value="${pay?escapeAttr(pay.concepto):''}">
+        </div>
+        <div class="form-actions">
+          ${isEditing ? '<button type="button" class="btn secondary" id="cancel-pay">Cancelar</button>' : ''}
+          <button type="submit" class="btn">${isEditing?'Guardar cambios':'Agregar pago'}</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Historial de nómina</h2>
+      <div class="list">${rows}</div>
+    </section>
+  `;
+}
+
+function escapeHtml(str){
+  if(str===undefined||str===null) return '';
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function escapeAttr(str){ return escapeHtml(str); }
+
+// ---------- Handlers ----------
+function attachHandlers(){
+  const formOp = $('#form-op');
+  if(formOp){
+    formOp.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(formOp);
+      const data = {
+        id: editingOp || uid(),
+        fecha: fd.get('fecha'),
+        monto: parseFloat(fd.get('monto'))||0,
+        inmueble: fd.get('inmueble').trim(),
+        cliente: fd.get('cliente').trim(),
+        notas: fd.get('notas').trim(),
+      };
+      if(editingOp){
+        const idx = operaciones.findIndex(o=>o.id===editingOp);
+        operaciones[idx] = data;
+        showToast('Operación actualizada');
+      }else{
+        operaciones.push(data);
+        showToast('Operación agregada');
+      }
+      editingOp = null;
+      await saveOps();
+      render();
+    });
+    const cancelBtn = $('#cancel-op');
+    if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ editingOp=null; render(); });
+  }
+
+  $$('[data-edit-op]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingOp = btn.dataset.editOp; render(); window.scrollTo({top:0,behavior:'smooth'}); });
+  });
+  $$('[data-del-op]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(confirm('¿Eliminar esta operación?')){
+        operaciones = operaciones.filter(o=>o.id!==btn.dataset.delOp);
+        await saveOps();
+        showToast('Operación eliminada');
+        render();
+      }
+    });
+  });
+
+  const formPay = $('#form-pay');
+  if(formPay){
+    formPay.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(formPay);
+      const data = {
+        id: editingPay || uid(),
+        fecha: fd.get('fecha'),
+        monto: parseFloat(fd.get('monto'))||0,
+        concepto: fd.get('concepto').trim(),
+      };
+      if(editingPay){
+        const idx = nomina.findIndex(p=>p.id===editingPay);
+        nomina[idx] = data;
+        showToast('Pago actualizado');
+      }else{
+        nomina.push(data);
+        showToast('Pago agregado');
+      }
+      editingPay = null;
+      await savePay();
+      render();
+    });
+    const cancelBtn = $('#cancel-pay');
+    if(cancelBtn) cancelBtn.addEventListener('click', ()=>{ editingPay=null; render(); });
+  }
+
+  $$('[data-edit-pay]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editingPay = btn.dataset.editPay; render(); window.scrollTo({top:0,behavior:'smooth'}); });
+  });
+  $$('[data-del-pay]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(confirm('¿Eliminar este pago?')){
+        nomina = nomina.filter(p=>p.id!==btn.dataset.delPay);
+        await savePay();
+        showToast('Pago eliminado');
+        render();
+      }
+    });
+  });
+}
+
+// Tabs
+$$('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    $$('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    editingOp = null;
+    editingPay = null;
+    render();
+  });
+});
+
+// Init
+(async function init(){
+  await loadData();
+  render();
+})();
+</script>
+</body>
+</html>
