@@ -165,6 +165,11 @@
   }
   .filter-toggle button.active{background:var(--paper);color:var(--orange-dark);box-shadow:0 1px 4px rgba(217,73,15,.15);}
   #filter-month, #filter-year{width:auto;min-width:160px;}
+
+  /* Backup section */
+  .backup-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .backup-actions .btn{white-space:nowrap;}
+  input[type="file"]{display:none;}
   .ledger-row .desc{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .ledger-row .amt{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;font-weight:600;}
   .ledger-row .bal{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;color:var(--ink-soft);}
@@ -465,6 +470,17 @@ function renderResumen(){
       </div>
       ${ledgerRows}
     </section>
+
+    <section class="card">
+      <h2>Copia de seguridad</h2>
+      <p class="hint">Los datos se guardan solos en este navegador. Para no perderlos si cambiás de computadora, se borra el historial o hay algún problema, descargá una copia de vez en cuando.</p>
+      <div class="backup-actions">
+        <button type="button" class="btn" id="btn-export-json">⬇ Descargar copia de seguridad</button>
+        <button type="button" class="btn secondary" id="btn-import-json">⬆ Restaurar una copia</button>
+        <button type="button" class="btn secondary" id="btn-export-csv">📊 Descargar en Excel (.csv)</button>
+        <input type="file" id="file-import" accept="application/json">
+      </div>
+    </section>
   `;
 }
 
@@ -617,6 +633,80 @@ function escapeHtml(str){
 }
 function escapeAttr(str){ return escapeHtml(str); }
 
+// ---------- Backup: exportar / importar ----------
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function exportJSON(){
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    operaciones,
+    nomina,
+  };
+  const fecha = todayISO();
+  downloadFile(`registro-antonela-${fecha}.json`, JSON.stringify(payload, null, 2), 'application/json');
+  showToast('Copia de seguridad descargada');
+}
+
+function csvEscape(val){
+  const s = String(val===undefined||val===null?'':val);
+  if(/[",\n;]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+function exportCSV(){
+  const entries = [
+    ...operaciones.map(o=>({...o, entryType:'op'})),
+    ...nomina.map(p=>({...p, entryType:'pay'}))
+  ].sort((a,b)=> a.fecha.localeCompare(b.fecha) || (a.entryType==='op'?-1:1));
+
+  let running = 0;
+  const rows = entries.map(e=>{
+    const monto = e.entryType==='op' ? Number(e.montoAntonela||0) : Number(e.monto||0);
+    running += e.entryType==='op' ? monto : -monto;
+    if(e.entryType==='op'){
+      return [e.fecha, 'Operación', e.tipo, e.inmueble||'', e.cliente||'', e.totalFacturado||0, e.montoAntonela||0, e.montoClaudia||0, '', e.notas||'', running.toFixed(2)];
+    }else{
+      return [e.fecha, TIPO_PAGO_LABEL[e.tipo]||'Nómina', '', '', '', '', '', '', e.monto||0, e.concepto||'', running.toFixed(2)];
+    }
+  });
+
+  const header = ['Fecha','Tipo de movimiento','Fact. A/B','Inmueble','Cliente','Total facturado','Tu parte','Parte Claudia','Monto pago nómina/SS','Notas/Concepto','Saldo acumulado'];
+  const csv = [header, ...rows].map(r=>r.map(csvEscape).join(';')).join('\n');
+  downloadFile(`registro-antonela-${todayISO()}.csv`, '\uFEFF'+csv, 'text/csv;charset=utf-8;');
+  showToast('Excel descargado');
+}
+
+async function importJSON(file){
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(!Array.isArray(data.operaciones) || !Array.isArray(data.nomina)){
+      showToast('El archivo no tiene el formato esperado');
+      return;
+    }
+    const ok = confirm('Esto va a reemplazar todos los datos actuales por los de la copia de seguridad. ¿Continuar?');
+    if(!ok) return;
+    operaciones = data.operaciones;
+    nomina = data.nomina;
+    await saveOps();
+    await savePay();
+    showToast('Datos restaurados correctamente');
+    render();
+  }catch(e){
+    showToast('No se pudo leer el archivo. Verificá que sea una copia de seguridad válida.');
+  }
+}
+
 // ---------- Handlers ----------
 function updateSplitPreview(){
   const tipoSel = $('#op-tipo');
@@ -650,6 +740,22 @@ function attachHandlers(){
     filterYearInput.addEventListener('change', ()=>{
       filterYear = Number(filterYearInput.value);
       render();
+    });
+  }
+
+  const btnExportJson = $('#btn-export-json');
+  if(btnExportJson) btnExportJson.addEventListener('click', exportJSON);
+  const btnExportCsv = $('#btn-export-csv');
+  if(btnExportCsv) btnExportCsv.addEventListener('click', exportCSV);
+  const btnImportJson = $('#btn-import-json');
+  const fileImport = $('#file-import');
+  if(btnImportJson && fileImport){
+    btnImportJson.addEventListener('click', ()=> fileImport.click());
+    fileImport.addEventListener('change', async ()=>{
+      if(fileImport.files && fileImport.files[0]){
+        await importJSON(fileImport.files[0]);
+        fileImport.value = '';
+      }
     });
   }
 
