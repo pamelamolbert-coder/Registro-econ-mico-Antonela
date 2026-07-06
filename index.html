@@ -155,6 +155,16 @@
   .badge.nom{background:var(--red-soft);color:var(--red);}
   .split-preview{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding:10px 12px;background:var(--cream);border-radius:9px;}
   .split-preview strong{color:var(--ink);}
+
+  /* Filter bar */
+  .filter-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+  .filter-toggle{display:flex;background:var(--cream);border-radius:9px;padding:4px;}
+  .filter-toggle button{
+    padding:8px 16px;border:none;background:transparent;border-radius:6px;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;color:var(--ink-soft);cursor:pointer;
+  }
+  .filter-toggle button.active{background:var(--paper);color:var(--orange-dark);box-shadow:0 1px 4px rgba(217,73,15,.15);}
+  #filter-month, #filter-year{width:auto;min-width:160px;}
   .ledger-row .desc{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .ledger-row .amt{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;font-weight:600;}
   .ledger-row .bal{font-family:'Space Mono',monospace;font-size:13.5px;text-align:right;color:var(--ink-soft);}
@@ -206,6 +216,12 @@ let operaciones = [];
 let nomina = [];
 let editingOp = null;
 let editingPay = null;
+let filterScope = 'mensual';
+let filterMonth = new Date().toISOString().slice(0,7);
+let filterYear = new Date().getFullYear();
+let resumenModo = 'mes'; // 'mes' | 'anio'
+let resumenMesSel = null; // se inicializa en init()
+let resumenAnioSel = null;
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -313,12 +329,27 @@ function render(){
 
 function renderResumen(){
   const saldo = saldoDisponible();
-  const genMes = sumByMonthKey(operaciones, thisMonthKey(), 'montoAntonela');
-  const cobMes = sumByMonthKey(nomina, thisMonthKey());
-  const genAnio = sumByYear(operaciones, thisYear(), 'montoAntonela');
-  const cobAnio = sumByYear(nomina, thisYear());
-  const claudiaMes = sumByMonthKey(operaciones, thisMonthKey(), 'montoClaudia');
-  const claudiaAnio = sumByYear(operaciones, thisYear(), 'montoClaudia');
+
+  // Datos filtrados según el período elegido (mensual o anual)
+  const genFiltro = filterScope==='mensual' ? sumByMonthKey(operaciones, filterMonth, 'montoAntonela') : sumByYear(operaciones, filterYear, 'montoAntonela');
+  const claudiaFiltro = filterScope==='mensual' ? sumByMonthKey(operaciones, filterMonth, 'montoClaudia') : sumByYear(operaciones, filterYear, 'montoClaudia');
+  const cobFiltro = filterScope==='mensual' ? sumByMonthKey(nomina, filterMonth) : sumByYear(nomina, filterYear);
+  const facAFiltro = filterScope==='mensual'
+    ? operaciones.filter(o=>o.tipo==='A' && keyOf(o.fecha)===filterMonth).reduce((s,o)=>s+Number(o.totalFacturado||0),0)
+    : operaciones.filter(o=>o.tipo==='A' && yearOf(o.fecha)===filterYear).reduce((s,o)=>s+Number(o.totalFacturado||0),0);
+  const facBFiltro = filterScope==='mensual'
+    ? operaciones.filter(o=>o.tipo==='B' && keyOf(o.fecha)===filterMonth).reduce((s,o)=>s+Number(o.totalFacturado||0),0)
+    : operaciones.filter(o=>o.tipo==='B' && yearOf(o.fecha)===filterYear).reduce((s,o)=>s+Number(o.totalFacturado||0),0);
+
+  const periodoLabel = filterScope==='mensual'
+    ? (()=>{ const [y,m]=filterMonth.split('-'); return `${MESES_LARGO[Number(m)-1]} ${y}`; })()
+    : `Año ${filterYear}`;
+
+  // Años disponibles para el selector (de los datos cargados, o el año actual si no hay nada)
+  const allDates = [...operaciones.map(o=>o.fecha), ...nomina.map(p=>p.fecha)].filter(Boolean);
+  const yearsSet = new Set(allDates.map(d=>yearOf(d)));
+  yearsSet.add(thisYear());
+  const years = [...yearsSet].sort((a,b)=>b-a);
 
   const keys = last6MonthKeys();
   const maxVal = Math.max(1, ...keys.map(k=>Math.max(sumByMonthKey(operaciones,k,'montoAntonela'), sumByMonthKey(nomina,k))));
@@ -359,6 +390,8 @@ function renderResumen(){
     </div>
   `;}).join('') : `<div class="empty">Todavía no hay movimientos. Cargá tu primera operación o nómina.</div>`;
 
+  const yearOptions = years.map(y=>`<option value="${y}" ${y===filterYear?'selected':''}>${y}</option>`).join('');
+
   return `
     <div class="balance-card">
       <div class="balance-label">Saldo disponible</div>
@@ -374,66 +407,46 @@ function renderResumen(){
     </div>
 
     <section class="card">
-      <h2>Reparto Antonela / Claudia</h2>
-      <p class="hint">Cuánto le corresponde a cada una sobre el total facturado, para verlo de un pantallazo.</p>
-      <div class="stats" style="margin-bottom:0">
-        <div class="stat">
-          <div class="k">Tu parte (total)</div>
-          <div class="v orange">${fmtMoney(totalGenerado())}</div>
+      <h2>Ver por período</h2>
+      <p class="hint">Elegí si querés ver los números de un mes puntual o del año completo.</p>
+      <div class="filter-bar">
+        <div class="filter-toggle">
+          <button type="button" data-scope="mensual" class="${filterScope==='mensual'?'active':''}">Mensual</button>
+          <button type="button" data-scope="anual" class="${filterScope==='anual'?'active':''}">Anual</button>
         </div>
-        <div class="stat">
-          <div class="k">Parte de Claudia (total)</div>
-          <div class="v" style="color:var(--ink)">${fmtMoney(totalClaudia())}</div>
-        </div>
-        <div class="stat">
-          <div class="k">Tu parte este año</div>
-          <div class="v orange">${fmtMoney(genAnio)}</div>
-        </div>
-        <div class="stat">
-          <div class="k">Parte de Claudia este año</div>
-          <div class="v" style="color:var(--ink)">${fmtMoney(claudiaAnio)}</div>
-        </div>
+        ${filterScope==='mensual'
+          ? `<input type="month" id="filter-month" value="${filterMonth}">`
+          : `<select id="filter-year">${yearOptions}</select>`}
       </div>
     </section>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="k">Tu parte este mes</div>
-        <div class="v orange">${fmtMoney(genMes)}</div>
-      </div>
-      <div class="stat">
-        <div class="k">Cobrado este mes</div>
-        <div class="v green">${fmtMoney(cobMes)}</div>
-      </div>
-      <div class="stat">
-        <div class="k">Tu parte este año (${thisYear()})</div>
-        <div class="v orange">${fmtMoney(genAnio)}</div>
-      </div>
-      <div class="stat">
-        <div class="k">Cobrado este año (${thisYear()})</div>
-        <div class="v green">${fmtMoney(cobAnio)}</div>
-      </div>
-    </div>
-
     <section class="card">
-      <h2>Control de facturación: A vs B</h2>
-      <p class="hint">Cuánto se facturó con factura (A) y cuánto sin factura (B), sobre el total facturado.</p>
+      <h2>Control de facturación — ${periodoLabel}</h2>
+      <p class="hint">Cuánto se facturó con factura (A) y cuánto sin factura (B), y cuánto le corresponde a cada una en el período elegido.</p>
       <div class="stats" style="margin-bottom:0">
         <div class="stat">
           <div class="k">Facturado en A</div>
-          <div class="v" style="color:var(--green)">${fmtMoney(totalFacturadoPorTipo('A'))}</div>
+          <div class="v" style="color:var(--green)">${fmtMoney(facAFiltro)}</div>
         </div>
         <div class="stat">
           <div class="k">Facturado en B</div>
-          <div class="v" style="color:var(--red)">${fmtMoney(totalFacturadoPorTipo('B'))}</div>
+          <div class="v" style="color:var(--red)">${fmtMoney(facBFiltro)}</div>
         </div>
         <div class="stat">
-          <div class="k">Tu parte total</div>
-          <div class="v orange">${fmtMoney(totalGenerado())}</div>
+          <div class="k">Tu parte</div>
+          <div class="v orange">${fmtMoney(genFiltro)}</div>
         </div>
         <div class="stat">
-          <div class="k">Parte de Claudia total</div>
-          <div class="v" style="color:var(--ink-soft)">${fmtMoney(totalClaudia())}</div>
+          <div class="k">Parte de Claudia</div>
+          <div class="v" style="color:var(--ink-soft)">${fmtMoney(claudiaFiltro)}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Cobrado (nómina + SS)</div>
+          <div class="v green">${fmtMoney(cobFiltro)}</div>
+        </div>
+        <div class="stat">
+          <div class="k">Facturación total (A+B)</div>
+          <div class="v" style="color:var(--ink)">${fmtMoney(facAFiltro+facBFiltro)}</div>
         </div>
       </div>
     </section>
@@ -619,6 +632,27 @@ function updateSplitPreview(){
 }
 
 function attachHandlers(){
+  $$('.filter-toggle [data-scope]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      filterScope = btn.dataset.scope;
+      render();
+    });
+  });
+  const filterMonthInput = $('#filter-month');
+  if(filterMonthInput){
+    filterMonthInput.addEventListener('change', ()=>{
+      filterMonth = filterMonthInput.value || filterMonth;
+      render();
+    });
+  }
+  const filterYearInput = $('#filter-year');
+  if(filterYearInput){
+    filterYearInput.addEventListener('change', ()=>{
+      filterYear = Number(filterYearInput.value);
+      render();
+    });
+  }
+
   const formOp = $('#form-op');
   if(formOp){
     updateSplitPreview();
