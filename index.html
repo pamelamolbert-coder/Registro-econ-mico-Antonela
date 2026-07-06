@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro Económico Antonela</title>
+<title>Registro Antonela</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -153,6 +153,12 @@
   .badge.b{background:var(--red-soft);color:var(--red);}
   .badge.ss{background:var(--orange-soft);color:var(--orange-dark);}
   .badge.nom{background:var(--red-soft);color:var(--red);}
+  .badge.pend{background:var(--orange-soft);color:var(--orange-dark);}
+  .checkbox-row{background:var(--cream);border-radius:9px;padding:12px 14px;}
+  .checkbox-label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer;margin-bottom:0;}
+  .checkbox-label input{width:auto;accent-color:var(--orange);}
+  .icon-btn.check-btn{color:var(--green);font-weight:700;}
+  .icon-btn.check-btn:hover{background:var(--green-soft);}
   .split-preview{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding:10px 12px;background:var(--cream);border-radius:9px;}
   .split-preview strong{color:var(--ink);}
 
@@ -184,16 +190,43 @@
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
   .loading{text-align:center;padding:60px 20px;color:var(--ink-soft);}
+
+  /* Lock screen */
+  .lock-overlay{
+    position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;
+    z-index:100;padding:20px;
+  }
+  .lock-card{
+    background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:36px 30px;
+    max-width:340px;width:100%;text-align:center;box-shadow:0 10px 30px rgba(43,36,30,.08);
+  }
+  .lock-card h2{font-family:'Fraunces',serif;font-size:20px;margin:0 0 6px;}
+  .lock-card .hint{margin:0 0 16px;}
+  .lock-card input{margin-top:0;}
+  .lock-error{color:var(--red);font-size:13px;margin-top:10px;min-height:16px;}
 </style>
 </head>
 <body>
-<div class="wrap">
+
+<div class="lock-overlay" id="lock-overlay">
+  <div class="lock-card">
+    <div class="brand-mark" style="margin:0 auto 14px;">A</div>
+    <h2 id="lock-title">Ingresá la contraseña</h2>
+    <p class="hint" id="lock-hint"></p>
+    <input type="password" id="lock-input" placeholder="Contraseña" autocomplete="off">
+    <input type="password" id="lock-confirm" placeholder="Confirmá la contraseña" autocomplete="off" style="display:none;margin-top:10px;">
+    <button class="btn" id="lock-submit" style="width:100%;margin-top:14px;">Entrar</button>
+    <div id="lock-error" class="lock-error"></div>
+  </div>
+</div>
+
+<div class="wrap" id="wrap-main" style="display:none;">
 
   <header>
     <div class="brand">
       <div class="brand-mark">A</div>
       <div>
-        <h1>Registro Económico Antonela</h1>
+        <h1>Registro Antonela</h1>
         <p>Control de operaciones y nómina</p>
       </div>
     </div>
@@ -284,13 +317,13 @@ async function savePay(){
 }
 
 // ---------- Derived data ----------
-function totalGenerado(){ return operaciones.reduce((s,o)=>s+Number(o.montoAntonela||0),0); }
-function totalClaudia(){ return operaciones.reduce((s,o)=>s+Number(o.montoClaudia||0),0); }
-function totalFacturacion(){ return operaciones.reduce((s,o)=>s+Number(o.totalFacturado||0),0); }
-function totalFacturadoPorTipo(tipo){ return operaciones.filter(o=>o.tipo===tipo).reduce((s,o)=>s+Number(o.totalFacturado||0),0); }
+function opsCobradas(list = operaciones){ return list.filter(o=>o.cobrado!==false); }
+function totalGenerado(){ return opsCobradas().reduce((s,o)=>s+Number(o.montoAntonela||0),0); }
+function totalClaudia(){ return opsCobradas().reduce((s,o)=>s+Number(o.montoClaudia||0),0); }
+function totalFacturacion(){ return opsCobradas().reduce((s,o)=>s+Number(o.totalFacturado||0),0); }
+function totalFacturadoPorTipo(tipo){ return opsCobradas().filter(o=>o.tipo===tipo).reduce((s,o)=>s+Number(o.totalFacturado||0),0); }
 function totalCobrado(){ return nomina.reduce((s,p)=>s+Number(p.monto||0),0); }
 function totalCobradoPorTipo(tipo){ return nomina.filter(p=>p.tipo===tipo).reduce((s,p)=>s+Number(p.monto||0),0); }
-function totalClaudia(){ return operaciones.reduce((s,o)=>s+Number(o.montoClaudia||0),0); }
 function saldoDisponible(){ return totalGenerado() - totalCobrado(); }
 
 function thisMonthKey(){
@@ -334,17 +367,21 @@ function render(){
 
 function renderResumen(){
   const saldo = saldoDisponible();
+  const cobradas = opsCobradas();
 
   // Datos filtrados según el período elegido (mensual o anual)
-  const genFiltro = filterScope==='mensual' ? sumByMonthKey(operaciones, filterMonth, 'montoAntonela') : sumByYear(operaciones, filterYear, 'montoAntonela');
-  const claudiaFiltro = filterScope==='mensual' ? sumByMonthKey(operaciones, filterMonth, 'montoClaudia') : sumByYear(operaciones, filterYear, 'montoClaudia');
+  const genFiltro = filterScope==='mensual' ? sumByMonthKey(cobradas, filterMonth, 'montoAntonela') : sumByYear(cobradas, filterYear, 'montoAntonela');
+  const claudiaFiltro = filterScope==='mensual' ? sumByMonthKey(cobradas, filterMonth, 'montoClaudia') : sumByYear(cobradas, filterYear, 'montoClaudia');
   const cobFiltro = filterScope==='mensual' ? sumByMonthKey(nomina, filterMonth) : sumByYear(nomina, filterYear);
   const facAFiltro = filterScope==='mensual'
-    ? operaciones.filter(o=>o.tipo==='A' && keyOf(o.fecha)===filterMonth).reduce((s,o)=>s+Number(o.totalFacturado||0),0)
-    : operaciones.filter(o=>o.tipo==='A' && yearOf(o.fecha)===filterYear).reduce((s,o)=>s+Number(o.totalFacturado||0),0);
+    ? cobradas.filter(o=>o.tipo==='A' && keyOf(o.fecha)===filterMonth).reduce((s,o)=>s+Number(o.totalFacturado||0),0)
+    : cobradas.filter(o=>o.tipo==='A' && yearOf(o.fecha)===filterYear).reduce((s,o)=>s+Number(o.totalFacturado||0),0);
   const facBFiltro = filterScope==='mensual'
-    ? operaciones.filter(o=>o.tipo==='B' && keyOf(o.fecha)===filterMonth).reduce((s,o)=>s+Number(o.totalFacturado||0),0)
-    : operaciones.filter(o=>o.tipo==='B' && yearOf(o.fecha)===filterYear).reduce((s,o)=>s+Number(o.totalFacturado||0),0);
+    ? cobradas.filter(o=>o.tipo==='B' && keyOf(o.fecha)===filterMonth).reduce((s,o)=>s+Number(o.totalFacturado||0),0)
+    : cobradas.filter(o=>o.tipo==='B' && yearOf(o.fecha)===filterYear).reduce((s,o)=>s+Number(o.totalFacturado||0),0);
+
+  const pendientesCount = operaciones.filter(o=>o.cobrado===false).length;
+  const pendientesTotal = operaciones.filter(o=>o.cobrado===false).reduce((s,o)=>s+Number(o.totalFacturado||0),0);
 
   const periodoLabel = filterScope==='mensual'
     ? (()=>{ const [y,m]=filterMonth.split('-'); return `${MESES_LARGO[Number(m)-1]} ${y}`; })()
@@ -357,9 +394,9 @@ function renderResumen(){
   const years = [...yearsSet].sort((a,b)=>b-a);
 
   const keys = last6MonthKeys();
-  const maxVal = Math.max(1, ...keys.map(k=>Math.max(sumByMonthKey(operaciones,k,'montoAntonela'), sumByMonthKey(nomina,k))));
+  const maxVal = Math.max(1, ...keys.map(k=>Math.max(sumByMonthKey(cobradas,k,'montoAntonela'), sumByMonthKey(nomina,k))));
   const barsHtml = keys.map(k=>{
-    const gen = sumByMonthKey(operaciones,k,'montoAntonela');
+    const gen = sumByMonthKey(cobradas,k,'montoAntonela');
     const [y,m] = k.split('-');
     const h = Math.round((gen/maxVal)*100);
     return `<div class="bar-col">
@@ -368,9 +405,9 @@ function renderResumen(){
     </div>`;
   }).join('');
 
-  // combined ledger
+  // combined ledger (solo operaciones ya cobradas cuentan para el saldo real)
   const entries = [
-    ...operaciones.map(o=>({...o, entryType:'op'})),
+    ...cobradas.map(o=>({...o, entryType:'op'})),
     ...nomina.map(p=>({...p, entryType:'pay'}))
   ].sort((a,b)=> a.fecha.localeCompare(b.fecha) || (a.entryType==='op'?-1:1));
 
@@ -410,6 +447,13 @@ function renderResumen(){
         <div>Facturación total (A+B)<strong>${fmtMoney(totalFacturacion())}</strong></div>
       </div>
     </div>
+
+    ${pendientesCount > 0 ? `
+    <section class="card" style="border-color:var(--orange-soft);background:var(--orange-soft);">
+      <h2 style="margin-bottom:8px;">⏳ Tenés ${pendientesCount} operación${pendientesCount>1?'es':''} pendiente${pendientesCount>1?'s':''} de cobro</h2>
+      <p class="hint" style="margin-bottom:0;">Suman ${fmtMoney(pendientesTotal)} en total facturado que todavía no se sumó a tus números. Andá a la pestaña <strong>Operaciones</strong> para marcarlas como cobradas cuando corresponda.</p>
+    </section>
+    ` : ''}
 
     <section class="card">
       <h2>Ver por período</h2>
@@ -472,12 +516,13 @@ function renderResumen(){
     </section>
 
     <section class="card">
-      <h2>Copia de seguridad</h2>
+      <h2>Copia de seguridad y acceso</h2>
       <p class="hint">Los datos se guardan solos en este navegador. Para no perderlos si cambiás de computadora, se borra el historial o hay algún problema, descargá una copia de vez en cuando.</p>
       <div class="backup-actions">
         <button type="button" class="btn" id="btn-export-json">⬇ Descargar copia de seguridad</button>
         <button type="button" class="btn secondary" id="btn-import-json">⬆ Restaurar una copia</button>
         <button type="button" class="btn secondary" id="btn-export-csv">📊 Descargar en Excel (.csv)</button>
+        <button type="button" class="btn secondary" id="btn-change-pass">🔒 Cambiar contraseña</button>
         <input type="file" id="file-import" accept="application/json">
       </div>
     </section>
@@ -490,21 +535,31 @@ function renderOperaciones(){
   const op = isEditing ? operaciones.find(o=>o.id===editingOp) : null;
   const tipoActual = op ? op.tipo : 'A';
   const totalActual = op ? op.totalFacturado : '';
+  const cobradoActual = op ? (op.cobrado !== false) : true;
 
-  const rows = sorted.length ? sorted.map(o=>`
+  const pendientes = sorted.filter(o=>o.cobrado===false);
+  const cobradas = sorted.filter(o=>o.cobrado!==false);
+
+  function rowItem(o, isPending){
+    return `
     <div class="row-item">
       <div class="meta">
-        <div class="title">${escapeHtml(o.inmueble||'Sin nombre')}${o.cliente ? ' · '+escapeHtml(o.cliente) : ''}<span class="badge ${o.tipo==='A'?'a':'b'}">Fact. ${o.tipo}</span></div>
+        <div class="title">${escapeHtml(o.inmueble||'Sin nombre')}${o.cliente ? ' · '+escapeHtml(o.cliente) : ''}<span class="badge ${o.tipo==='A'?'a':'b'}">Fact. ${o.tipo}</span>${isPending?'<span class="badge pend">Pendiente de cobro</span>':''}</div>
         <div class="date">${fmtDate(o.fecha)}${o.notas ? ' · '+escapeHtml(o.notas) : ''}</div>
         <div class="date">Total facturado: ${fmtMoney(o.totalFacturado)} · Claudia: ${fmtMoney(o.montoClaudia)}</div>
       </div>
-      <div class="amt plus">+${fmtMoney(o.montoAntonela)}</div>
+      <div class="amt plus" style="${isPending?'opacity:.5':''}">+${fmtMoney(o.montoAntonela)}</div>
       <div class="actions">
+        ${isPending ? `<button class="icon-btn check-btn" data-cobrar-op="${o.id}" title="Marcar como cobrada">✓</button>` : ''}
         <button class="icon-btn" data-edit-op="${o.id}" title="Editar">✎</button>
         <button class="icon-btn" data-del-op="${o.id}" title="Eliminar">✕</button>
       </div>
     </div>
-  `).join('') : `<div class="empty">Todavía no cargaste ninguna operación. Sumá la primera con el formulario de arriba.</div>`;
+  `;
+  }
+
+  const pendRows = pendientes.length ? pendientes.map(o=>rowItem(o,true)).join('') : '';
+  const rows = cobradas.length ? cobradas.map(o=>rowItem(o,false)).join('') : `<div class="empty">Todavía no cargaste ninguna operación cobrada.</div>`;
 
   return `
     <section class="card">
@@ -535,6 +590,13 @@ function renderOperaciones(){
           <label>Cliente</label>
           <input type="text" name="cliente" placeholder="Ej: Familia García" value="${op?escapeAttr(op.cliente):''}">
         </div>
+        <div class="full checkbox-row">
+          <label class="checkbox-label">
+            <input type="checkbox" name="cobrado" id="op-cobrado" ${cobradoActual?'checked':''}>
+            Ya se cobró esta operación
+          </label>
+          <p class="hint" style="margin:4px 0 0;">Si la destildás, queda como <strong>pendiente de cobro</strong> y no se suma a los totales hasta que la marques como cobrada.</p>
+        </div>
         <div class="full">
           <label>Notas (opcional)</label>
           <textarea name="notas" placeholder="Cualquier detalle que quieras recordar">${op?escapeHtml(op.notas||''):''}</textarea>
@@ -546,8 +608,16 @@ function renderOperaciones(){
       </form>
     </section>
 
+    ${pendientes.length ? `
     <section class="card">
-      <h2>Historial de operaciones</h2>
+      <h2>Pendientes de cobro (${pendientes.length})</h2>
+      <p class="hint">Estas operaciones todavía no suman a tus totales. Tocá el ✓ verde cuando se cobren.</p>
+      <div class="list">${pendRows}</div>
+    </section>
+    ` : ''}
+
+    <section class="card">
+      <h2>Historial de operaciones cobradas</h2>
       <div class="list">${rows}</div>
     </section>
   `;
@@ -747,6 +817,8 @@ function attachHandlers(){
   if(btnExportJson) btnExportJson.addEventListener('click', exportJSON);
   const btnExportCsv = $('#btn-export-csv');
   if(btnExportCsv) btnExportCsv.addEventListener('click', exportCSV);
+  const btnChangePass = $('#btn-change-pass');
+  if(btnChangePass) btnChangePass.addEventListener('click', changePassword);
   const btnImportJson = $('#btn-import-json');
   const fileImport = $('#file-import');
   if(btnImportJson && fileImport){
@@ -781,6 +853,7 @@ function attachHandlers(){
         inmueble: fd.get('inmueble').trim(),
         cliente: fd.get('cliente').trim(),
         notas: fd.get('notas').trim(),
+        cobrado: fd.get('cobrado') === 'on',
       };
       if(editingOp){
         const idx = operaciones.findIndex(o=>o.id===editingOp);
@@ -788,7 +861,7 @@ function attachHandlers(){
         showToast('Operación actualizada');
       }else{
         operaciones.push(data);
-        showToast('Operación agregada');
+        showToast(data.cobrado ? 'Operación agregada' : 'Operación agregada como pendiente de cobro');
       }
       editingOp = null;
       await saveOps();
@@ -807,6 +880,17 @@ function attachHandlers(){
         operaciones = operaciones.filter(o=>o.id!==btn.dataset.delOp);
         await saveOps();
         showToast('Operación eliminada');
+        render();
+      }
+    });
+  });
+  $$('[data-cobrar-op]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const idx = operaciones.findIndex(o=>o.id===btn.dataset.cobrarOp);
+      if(idx !== -1){
+        operaciones[idx] = {...operaciones[idx], cobrado: true};
+        await saveOps();
+        showToast('Operación marcada como cobrada');
         render();
       }
     });
@@ -866,8 +950,85 @@ $$('nav.tabs button').forEach(btn=>{
   });
 });
 
+// ---------- Pantalla de contraseña ----------
+const PASS_KEY = 'antonela-app-pass';
+
+function initLock(){
+  const overlay = $('#lock-overlay');
+  const wrapMain = $('#wrap-main');
+  const title = $('#lock-title');
+  const hint = $('#lock-hint');
+  const input = $('#lock-input');
+  const confirmInput = $('#lock-confirm');
+  const submit = $('#lock-submit');
+  const errorEl = $('#lock-error');
+  const stored = localStorage.getItem(PASS_KEY);
+  const isSetup = !stored;
+
+  if(isSetup){
+    title.textContent = 'Creá una contraseña';
+    hint.textContent = 'La vas a necesitar cada vez que abras el registro en este navegador.';
+    confirmInput.style.display = 'block';
+  }else{
+    title.textContent = 'Ingresá la contraseña';
+    hint.textContent = '';
+    confirmInput.style.display = 'none';
+  }
+
+  function unlock(){
+    overlay.style.display = 'none';
+    wrapMain.style.display = 'block';
+  }
+
+  function handle(){
+    errorEl.textContent = '';
+    if(isSetup){
+      const p1 = input.value;
+      const p2 = confirmInput.value;
+      if(!p1 || p1.length < 4){ errorEl.textContent = 'Usá al menos 4 caracteres.'; return; }
+      if(p1 !== p2){ errorEl.textContent = 'Las contraseñas no coinciden.'; return; }
+      localStorage.setItem(PASS_KEY, p1);
+      unlock();
+    }else{
+      if(input.value === localStorage.getItem(PASS_KEY)){
+        unlock();
+      }else{
+        errorEl.textContent = 'Contraseña incorrecta.';
+        input.value = '';
+        input.focus();
+      }
+    }
+  }
+
+  submit.addEventListener('click', handle);
+  input.addEventListener('keydown', e=>{
+    if(e.key === 'Enter'){
+      if(isSetup) confirmInput.focus();
+      else handle();
+    }
+  });
+  confirmInput.addEventListener('keydown', e=>{ if(e.key === 'Enter') handle(); });
+  input.focus();
+}
+
+async function changePassword(){
+  const stored = localStorage.getItem(PASS_KEY);
+  const actual = prompt('Ingresá tu contraseña actual:');
+  if(actual === null) return;
+  if(actual !== stored){ showToast('Contraseña actual incorrecta'); return; }
+  const nueva = prompt('Nueva contraseña (mínimo 4 caracteres):');
+  if(nueva === null) return;
+  if(!nueva || nueva.length < 4){ showToast('Usá al menos 4 caracteres'); return; }
+  const confirmacion = prompt('Confirmá la nueva contraseña:');
+  if(confirmacion === null) return;
+  if(nueva !== confirmacion){ showToast('Las contraseñas no coinciden'); return; }
+  localStorage.setItem(PASS_KEY, nueva);
+  showToast('Contraseña actualizada');
+}
+
 // Init
 (async function init(){
+  initLock();
   await loadData();
   render();
 })();
